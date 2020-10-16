@@ -1,0 +1,41 @@
+{
+  "Actions": [
+    {
+      "Icon": "lol-icon",
+      "Name": "Lol CD Tracker",
+      "States": [
+        {
+          "Image": "lol-icon",
+          "TitleAlignment": "middle",
+          "FontSize": "18",
+          "Title": "?"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Track cooldowns of enemy players",
+      "UUID": "lol-cds"
+    }
+  ],
+  "SDKVersion": 2,
+  "Author": "Thijmen",
+  "CodePath": "index.html",
+  "Description": "Track cooldowns of enemy players",
+  "Name": "LOL CD Tracker",
+  "Icon": "lol-icon",
+  "URL": "http://website.void",
+  "Version": "1.4",
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.11"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": 
+  {
+      "MinimumVersion" : "4.1"
+  }
+}

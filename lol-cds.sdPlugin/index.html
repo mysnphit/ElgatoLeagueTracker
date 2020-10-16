@@ -1,0 +1,286 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+	<title>lol-cds</title>
+	<meta charset="utf-8" />
+</head>
+
+<body>
+	<script>
+
+		var websocket = null;
+		var pluginUUID = null;
+		var updateDataHandle = null;
+		var updateTimerHandle = null;
+		var settingsCache = {};
+		var coordinatesToContext = {};
+		var enemyPlayers = [];
+		var timings = {};
+		var ingameTimings = {};
+		var spells = {};
+		var active = false;
+		var data = null;
+		var DestinationEnum = Object.freeze({ "HARDWARE_AND_SOFTWARE": 0, "HARDWARE_ONLY": 1, "SOFTWARE_ONLY": 2 });
+		
+
+		var cooldowns = {
+			"Cleanse": function(player) { return 210 } ,
+			"Exhaust": function(player) { return 210 },
+			"Flash": function(player) { return 300 },
+			"Ghost": function(player) { return 210 },
+			"Heal": function(player) { return 240 },
+			"Smite": function(player) { return 15 },
+			"Teleport": function(player) { return 420 - (10 * player.level) },
+			"Clarity": function(player) { return 240 },
+			"Ignite": function(player) { return 180 },
+			"Barrier": function(player) { return 180 },
+			"Mark": function(player) { return 80 }
+		}
+
+		var numberdisplayAction = {
+			type: "lol-cds",
+			onKeyDown: function (context, settings, coordinates, userDesiredState) {
+				
+			},
+
+			onKeyUp: function (context, settings, coordinates, userDesiredState) {
+				if (coordinates.row > 0) {
+					var key = [coordinates.row, coordinates.column]
+					if (timings[key] <= 0) {
+						var player = enemyPlayers[coordinates.column]
+						// We cant detect the rune that gives 0.05 reduction, so we just add it to the error margin
+						var timing = parseInt(cooldowns[spells[key]](player) * (1 - 0.06 - Math.min(1, player.items.filter(x => x.itemID == 3173).length) * 0.10))
+						timings[key] = timing
+						ingameTimings[key] = timing + data.gameData.gameTime
+					} else {
+						timings[key] = 0
+					}
+				}
+			},
+
+			onWillAppear: function (context, settings, coordinates) {
+				this.SetTitle(context, "?");
+			},
+
+			SetTitle: function (context, time) {
+				var json = {
+					"event": "setTitle",
+					"context": context,
+					"payload": {
+						"title": time > 0 ? secondsToMinuteString(time) : "",
+						"target": DestinationEnum.HARDWARE_AND_SOFTWARE
+					}
+				};
+
+				websocket.send(JSON.stringify(json));
+			}
+		};
+		function copyTextToClipboard(text) {
+			var textArea = document.createElement("textarea");
+			textArea.value = text;
+			
+			// Avoid scrolling to bottom
+			textArea.style.top = "0";
+			textArea.style.left = "0";
+			textArea.style.position = "fixed";
+
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+
+			try {
+				var successful = document.execCommand('copy');
+				var msg = successful ? 'successful' : 'unsuccessful';
+				console.log('Fallback: Copying text command was ' + msg);
+			} catch (err) {
+				console.error('Fallback: Oops, unable to copy', err);
+			}
+
+			document.body.removeChild(textArea);
+		}
+
+		function secondsToMinuteString(seconds) {
+			var minutes = Math.floor(seconds/60)
+			var seconds = Math.floor(seconds % 60)
+
+			return minutes + ":" + (seconds.toString().padStart(2, '0'))
+		}
+
+		function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
+			pluginUUID = inPluginUUID
+			
+			// Open the web socket
+			websocket = new WebSocket("ws://localhost:" + inPort);
+
+			function registerPlugin(inPluginUUID) {
+				var json = {
+					"event": inRegisterEvent,
+					"uuid": inPluginUUID
+				};
+
+				websocket.send(JSON.stringify(json));
+			};
+
+			websocket.onopen = function () {
+				// WebSocket is connected, send message
+				registerPlugin(pluginUUID);
+
+				updateTimerHandle = setInterval(function () {
+					var timingString = ""
+					for (key in timings) {
+						var current = timings[key]
+						
+						if (current <= 0) {
+							numberdisplayAction.SetTitle(coordinatesToContext[key], 0)
+						} else {							
+							var player = enemyPlayers[parseInt(key.split(",")[1])]
+							
+							var identifier = player.position != "" ? player.position : player.championName
+							timingString += secondsToMinuteString(ingameTimings[key]) + identifier + spells[key] + " "
+
+							numberdisplayAction.SetTitle(coordinatesToContext[key], current)
+							timings[key]--
+						}
+					}
+
+					if (active && timingString != "") {
+						console.log(timingString)
+						copyTextToClipboard(timingString)
+					}
+				}, 1000)
+
+				updateDataHandle = setInterval(function () {
+					if (active) {
+						var url = "http://localhost:9000/liveclientdata/allgamedata"
+						var xmlHttp = new XMLHttpRequest();
+						xmlHttp.open( "GET", url, false ); 
+						xmlHttp.send( null );
+						
+						if (xmlHttp.status == 200) {
+							data = JSON.parse(xmlHttp.responseText);
+							
+							var currentPlayerName = data.activePlayer.summonerName;
+							var allPlayers = data.allPlayers;
+
+							var currentPlayer = allPlayers.filter(p => p.summonerName == currentPlayerName)[0];
+							enemyPlayers = allPlayers.filter(p => p.team != currentPlayer.team);
+							
+
+							for (var i = 0; i < enemyPlayers.length; i++) {
+								var imageName = enemyPlayers[i].championName.replace(/\W/g, '')
+								loadImageAsDataUri(`champs/${imageName}.png`, i, function (imgUrl, i) {
+									var json = {
+										"event": "setImage",
+										"context": coordinatesToContext[[0, i]],
+										"payload": {
+											image: imgUrl || "",
+											target: DestinationEnum.HARDWARE_AND_SOFTWARE
+										}
+									};
+									websocket.send(JSON.stringify(json));
+								})
+								
+								imageName = enemyPlayers[i].summonerSpells.summonerSpellOne.displayName
+								imageName = imageName.indexOf("Smite") > -1 ? "Smite" : imageName
+								spells[[1, i]] = imageName
+								loadImageAsDataUri(`spells/Summoner${imageName}.png`, i, function (imgUrl, i) {
+									var json = {
+										"event": "setImage",
+										"context": coordinatesToContext[[1, i]],
+										"payload": {
+											image: imgUrl || "",
+											target: DestinationEnum.HARDWARE_AND_SOFTWARE
+										}
+									};
+									websocket.send(JSON.stringify(json));
+								})
+
+								imageName = enemyPlayers[i].summonerSpells.summonerSpellTwo.displayName
+								imageName = imageName.indexOf("Smite") > -1 ? "Smite" : imageName
+								spells[[2, i]] = imageName
+								loadImageAsDataUri(`spells/Summoner${imageName}.png`, i, function (imgUrl, i) {
+									var json = {
+										"event": "setImage",
+										"context": coordinatesToContext[[2, i]],
+										"payload": {
+											image: imgUrl || "",
+											target: DestinationEnum.HARDWARE_AND_SOFTWARE
+										}
+									};
+									websocket.send(JSON.stringify(json));
+								})
+							}
+						}
+					}
+				}, 1000)
+			};
+
+			websocket.onmessage = function (evt) {
+				// Received message from Stream Deck
+				var jsonObj = JSON.parse(evt.data);
+				var event = jsonObj['event'];
+				var action = jsonObj['action'];
+				var context = jsonObj['context'];
+				var jsonPayload = jsonObj['payload'] || {};
+
+				if (event == "keyDown") {
+					var settings = jsonPayload['settings'];
+					var coordinates = jsonPayload['coordinates'];
+					var userDesiredState = jsonPayload['userDesiredState'];
+					numberdisplayAction.onKeyDown(context, settings, coordinates, userDesiredState);
+				}
+				else if (event == "keyUp") {
+					var settings = jsonPayload['settings'];
+					var coordinates = jsonPayload['coordinates'];
+					var userDesiredState = jsonPayload['userDesiredState'];
+					numberdisplayAction.onKeyUp(context, settings, coordinates, userDesiredState);
+				}
+				else if (event == "willAppear") {
+					active = true
+					var settings = jsonPayload['settings'];
+					var coordinates = jsonPayload['coordinates'];
+					var key = [coordinates.row, coordinates.column]
+					
+					coordinatesToContext[key] = context
+					
+					if (coordinates.row > 0 && !(key in timings)) {
+						timings[key] = 0
+					}
+
+					numberdisplayAction.onWillAppear(context, settings, coordinates);
+				} else if (event == "willDisappear") {
+					active = false
+				}
+			};
+
+			websocket.onclose = function () {
+				// Websocket is closed
+				clearInterval(updateDataHandle)
+				clearInterval(updateTimerHandle)
+			};
+		};
+
+
+		function loadImageAsDataUri(url, i, callback) {
+			var image = new Image();
+
+			image.onload = function () {
+				var canvas = document.createElement("canvas");
+
+				canvas.width = this.naturalWidth;
+				canvas.height = this.naturalHeight;
+
+				var ctx = canvas.getContext("2d");
+				ctx.drawImage(this, 0, 0);
+				callback(canvas.toDataURL("image/png"), i);
+			};
+
+			image.src = url;
+		};
+
+	</script>
+
+</body>
+
+</html>

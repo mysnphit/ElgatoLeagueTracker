@@ -1,0 +1,6 @@
+# How to use
+
+1. Download nginx from https://nginx.org/en/download.html
+2. Extract the downloaded zip containing nginx to a location of your choosing 
+3. Replace `nginx.conf` inside the `conf` folder with the `nginx.conf` file found in the `proxy` folder
+4. Start nginx when you want to use lol-cds.
