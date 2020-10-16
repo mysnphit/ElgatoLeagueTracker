@@ -10,3 +10,11 @@
 
 This is quite a low-effort plugin and could definitely use some love. If you have any fixes or ideas, feel free to create a pull request!
 Also, if this is against TOS, feel free to let me know and I'll remove the plugin.
+
+## Demo
+
+**Game**
+![Game](demo/game.png)
+
+**Streamdeck**
+![Game](demo/streamdeck.jpg)
