@@ -9,7 +9,8 @@
 7. The enemy champs and summoners should show up and you are ready to time them by simpely pressing them!
 
 This is quite a low-effort plugin and could definitely use some love. If you have any fixes or ideas, feel free to create a pull request!
-Also, if this is against TOS, feel free to let me know and I'll remove the plugin.
+Also, if this is against TOS, feel free to let me know and I'll remove the plugin (open an issue or something).
+This is in not monetized in anyway and the project is just a for-fun hobby project that I wanted to share with the community.
 
 ## Demo
 
