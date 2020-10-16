@@ -1,7 +1,7 @@
 # lol-cds
 
 1. Setup nginx proxy using config file in `proxy` (more instructions inside that folder). This is required to access the local client api through HTTP instead of HTTPS (otherwise we get certificate errors preventing the plugin from retreiving any data from the client).
-2. Run `type_clipboard.ahk` to type out timed summoners in chat using `CTRL+SHIFT+V`.
+2. Run `type_clipboard.ahk` to type out timed summoners in chat using `CTRL+SHIFT+V` (requires AutoHotkey to be installed).
 3. Install the lol-cds plugin by either copying the `lol-cds.sdPlugin` folder to `%APPDATA%\Elgato\StreamDeck\Plugins` or by double clicking on `lol-cds.streamDeckPlugin`.
 4. Make a new profile in StreamDeck called `League` and make it auto swap on `League of Legends (TM) Client` (open a league game to see it in the dropdown list). 
 5. Select the `League` profile and drop `LoL CD Tracker` in every slot on you 5x3 stream deck. 
